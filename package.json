@@ -56,7 +56,7 @@
   },
   "config": {
     "ghooks": {
-      "pre-commit": "yarn lint-staged && node addLicense.js",
+      "pre-commit": "yarn lint-staged && node ./scripts/addLicense.js",
       "commit-msg": "commitlint --edit"
     }
   },
@@ -86,7 +86,7 @@
     "typescript": "5.1.3"
   },
   "volta": {
-    "node": "18.14.2",
+    "node": "20.14.0",
     "yarn": "1.22.19"
   },
   "dependencies": {}

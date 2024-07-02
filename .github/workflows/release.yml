@@ -16,18 +16,13 @@ jobs:
     steps:
       - name: Checkout
         uses: actions/checkout@v3
-      - name: Checkout pro-plugins
-        uses: actions/checkout@v3
-        with:
-          repository: nocobase/pro-plugins
-          path: packages/pro-plugins
-          ssh-key: ${{ secrets.SUBMODULE_SSH_KEY }}
       - name: yarn install and build
         run: |
           yarn config set registry https://registry.npmjs.org/
           yarn install
           yarn build
       - name: publish npmjs.org
+        continue-on-error: true
         run: |
           git config --global user.email "test@mail.com"
           git config --global user.name "test"
@@ -43,14 +38,28 @@ jobs:
           yarn config set //registry.npmjs.org/:_authToken=${{ secrets.NPM_TOKEN }}
           npm whoami
           yarn release:force --no-verify-access --no-git-reset --registry https://registry.npmjs.org/
+      - name: Checkout pro-plugins
+        uses: actions/checkout@v3
+        with:
+          repository: nocobase/pro-plugins
+          path: packages/pro-plugins
+          ssh-key: ${{ secrets.SUBMODULE_SSH_KEY }}
+      - name: Build Pro plugins
+        continue-on-error: true
+        run: |
+          yarn config set registry https://registry.npmjs.org/
+          yarn install
+          yarn build packages/pro-plugins
       - name: publish pkg.nocobase.com
         run: |
-          yarn config set //pkg.nocobase.com/:_authToken=${{ secrets.PKG_NOCOBASE_TOKEN }}
+          git reset --hard
+          npm config set //pkg.nocobase.com/:_authToken=${{ secrets.PKG_NOCOBASE_TOKEN }}
           yarn release:force --no-verify-access --no-git-reset --registry https://pkg.nocobase.com
       - name: publish pkg-src.nocobase.com
         run: |
+          git reset --hard
           bash generate-npmignore.sh ignore-src
-          yarn config set //pkg-src.nocobase.com/:_authToken=${{ secrets.PKG_SRC_NOCOBASE_TOKEN }}
+          npm config set //pkg-src.nocobase.com/:_authToken=${{ secrets.PKG_SRC_NOCOBASE_TOKEN }}
           yarn release:force --no-verify-access --no-git-reset --registry https://pkg-src.nocobase.com
   push-docker:
     runs-on: ubuntu-latest
@@ -78,10 +87,16 @@ jobs:
         with:
           username: ${{ secrets.DOCKERHUB_USERNAME }}
           password: ${{ secrets.DOCKERHUB_TOKEN }}
+      - name: Login to Aliyun Container Registry (Public)
+        uses: docker/login-action@v2
+        with:
+          registry: ${{ secrets.ALI_DOCKER_PUBLIC_REGISTRY }}
+          username: ${{ secrets.ALI_DOCKER_USERNAME }}
+          password: ${{ secrets.ALI_DOCKER_PASSWORD }}
       - name: Build and push
         uses: docker/build-push-action@v3
         with:
           context: ./docker/nocobase
           platforms: linux/amd64,linux/arm64
           push: true
-          tags: nocobase/nocobase:latest,${{ steps.meta.outputs.tags }}
+          tags: nocobase/nocobase:latest,${{ steps.meta.outputs.tags }},${{ secrets.ALI_DOCKER_PUBLIC_REGISTRY }}/nocobase/nocobase:latest,${{ secrets.ALI_DOCKER_PUBLIC_REGISTRY }}/${{ steps.meta.outputs.tags }}

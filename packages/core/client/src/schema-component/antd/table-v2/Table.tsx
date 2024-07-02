@@ -35,8 +35,8 @@ import {
   useTableSelectorContext,
 } from '../../../';
 import { useACLFieldWhitelist } from '../../../acl/ACLProvider';
-import { withDynamicSchemaProps } from '../../../application/hoc/withDynamicSchemaProps';
 import { isNewRecord } from '../../../data-source/collection-record/isNewRecord';
+import { withDynamicSchemaProps } from '../../../hoc/withDynamicSchemaProps';
 import { useToken } from '../__builtins__';
 import { SubFormProvider } from '../association-field/hooks';
 import { ColumnFieldProvider } from './components/ColumnFieldProvider';
@@ -157,16 +157,17 @@ const useTableColumns = (props: { showDel?: boolean; isSubTable?: boolean }) => 
     if (!exists) {
       return columns;
     }
-    const res = [...columns];
-    if (designable) {
-      res.push({
+    const res = [
+      ...columns,
+      {
         title: render(),
         dataIndex: 'TABLE_COLUMN_INITIALIZER',
         key: 'TABLE_COLUMN_INITIALIZER',
-        render: () => <div style={{ minWidth: 180 }} />,
-        fixed: 'right',
-      });
-    }
+        render: designable ? () => <div style={{ minWidth: 180 }} /> : null,
+        fixed: designable ? 'right' : 'none',
+      },
+    ];
+
     if (props.showDel) {
       res.push({
         title: '',
@@ -240,10 +241,10 @@ const SortableRow = (props) => {
 
 const SortHandle = (props) => {
   const { id, ...otherProps } = props;
-  const { listeners } = useSortable({
+  const { listeners, setNodeRef } = useSortable({
     id,
   });
-  return <MenuOutlined {...otherProps} {...listeners} style={{ cursor: 'grab' }} />;
+  return <MenuOutlined ref={setNodeRef} {...otherProps} {...listeners} style={{ cursor: 'grab' }} />;
 };
 
 const TableIndex = (props) => {
@@ -304,10 +305,13 @@ const cellClass = css`
   }
 `;
 
+const floatLeftClass = css`
+  float: left;
+`;
+
 const rowSelectCheckboxWrapperClass = css`
   position: relative;
   display: flex;
-  float: left;
   align-items: center;
   justify-content: space-evenly;
   padding-right: 8px;
@@ -454,7 +458,7 @@ export const Table: any = withDynamicSchemaProps(
       if (!_.isEqual(newExpandesKeys, expandedKeys)) {
         setExpandesKeys(newExpandesKeys);
       }
-    }, [expandFlag]);
+    }, [expandFlag, allIncludesChildren]);
 
     /**
      * 为没有设置 key 属性的表格行生成一个唯一的 key
@@ -593,7 +597,7 @@ export const Table: any = withDynamicSchemaProps(
                   <div
                     role="button"
                     aria-label={`table-index-${index}`}
-                    className={classNames(checked ? 'checked' : null, rowSelectCheckboxWrapperClass, {
+                    className={classNames(checked ? 'checked' : floatLeftClass, rowSelectCheckboxWrapperClass, {
                       [rowSelectCheckboxWrapperClassHover]: isRowSelect,
                     })}
                   >
@@ -646,23 +650,19 @@ export const Table: any = withDynamicSchemaProps(
       },
       [field, dragSort, getRowKey],
     );
-    const fieldSchema = useFieldSchema();
-    const fixedBlock = fieldSchema?.parent?.['x-decorator-props']?.fixedBlock;
 
-    const { height: tableHeight, tableSizeRefCallback } = useTableSize(fixedBlock);
+    const { height: tableHeight, tableSizeRefCallback } = useTableSize();
     const maxContent = useMemo(() => {
       return {
         x: 'max-content',
       };
     }, []);
     const scroll = useMemo(() => {
-      return fixedBlock
-        ? {
-            x: 'max-content',
-            y: tableHeight,
-          }
-        : maxContent;
-    }, [fixedBlock, tableHeight, maxContent]);
+      return {
+        x: 'max-content',
+        y: tableHeight,
+      };
+    }, [tableHeight, maxContent]);
 
     const rowClassName = useCallback(
       (record) => (selectedRow.includes(record[rowKey]) ? highlightRow : ''),
@@ -686,7 +686,6 @@ export const Table: any = withDynamicSchemaProps(
         expandedRowKeys: expandedKeys,
       };
     }, [expandedKeys, onExpandValue]);
-
     return (
       <div
         className={css`
@@ -700,6 +699,9 @@ export const Table: any = withDynamicSchemaProps(
                 height: 100%;
                 display: flex;
                 flex-direction: column;
+                .ant-table-body {
+                  min-height: ${tableHeight}px;
+                }
               }
             }
           }
